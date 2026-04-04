@@ -32,7 +32,7 @@ def chat_with_rag(session_id: str, user_query: str, request_model: str = "auto")
 {user_query}
 
 INSTRUCTIONS:
-Answer ONLY based on the CONTRACT CONTEXT above. If the answer is NOT in the context, explicitly say "Information not found in the provided contract context." Do not guess.
+Answer ONLY based on the CONTRACT CONTEXT above. If the answer is NOT in the context, don't say explicitly  "Information not found in the provided contract context." Do not guess try to ask them and provide the correct valid answer.
 """
         
         # 6. Generate the answer
