@@ -19,7 +19,7 @@ class ModelProvider:
         # 2. YOUR MODEL REGISTRY (Matches your API Dashboard)
         self.MODEL_MAP = {
             "flash": "gemini-2.5-flash",
-            "pro": "gemini-2.5-pro",
+            "pro": "gemini-3-Flash",
             "gemma": "gemma-3-27b",
             "lite": "gemini-2.5-flash-lite",
             "embed": "models/gemini-embedding-2-preview"

@@ -4,88 +4,55 @@ def process_contract(text: str, model: str = "flash") -> str:
     """
     Performs the initial deep analysis of the contract text.
     """
-    prompt =  prompt = f"""
-You are an expert legal contract analysis assistant.
+    # --- BUG FIX: Define context_text here! ---
+    clean_text = " ".join(text.split())
+    context_text = clean_text[:15000] # Safe limit for Gemini API
+    # ------------------------------------------
 
-Your job is to analyze the given contract deeply from a real-world legal and risk perspective.
+    prompt = f"""
+You are an expert, pragmatic legal advisor. Your goal is to help the user understand their contract constructively. 
 
----
-
-IMPORTANT RULES (STRICT):
-- Use ONLY information from the contract
-- Do NOT assume or hallucinate
-- If something is missing, clearly say: "Not specified"
-- Be practical, realistic, and user-focused
-- Avoid generic or vague statements
+Do not be overly alarmist. Differentiate between standard business imbalances and actual predatory traps.
 
 ---
+STRICT RULES:
+- Use ONLY information from the contract. Do not hallucinate.
+- If standard boilerplate is missing, treat it as a "Recommendation" to improve the contract, NOT a critical Red Flag.
+- Keep the language simple, professional, and actionable.
 
+---
 ANALYSIS INSTRUCTIONS:
 
-1. CONTRACT OVERVIEW:
-- Explain what the contract is about in 3–5 clear bullet points
+1. 📄 CONTRACT OVERVIEW:
+- 3–4 bullet points explaining the core agreement (Parties, Purpose, Key Deliverables).
+
+2. ⚖️ KEY CLAUSES EXPLAINED:
+- Briefly explain Payment, Timeline, Liability, and Termination in plain English.
+
+3. 🚨 CRITICAL RED FLAGS (Only if applicable):
+- ONLY list severe, predatory, or highly dangerous clauses here.
+- Examples of Red Flags: Unlimited financial liability, completely one-sided termination, illegal penalties, loss of core Intellectual Property.
+- If there are no severe traps, write: "No severe red flags detected."
+
+4. ⚠️ AREAS OF CONCERN (Medium Risk):
+- Highlight unbalanced terms or standard loopholes that favor the other party.
+- Example: Vague deadlines, auto-renewals without notice, or low liability caps.
+
+5. 💡 CONSTRUCTIVE RECOMMENDATIONS & NEGOTIATION TACTICS:
+- List standard clauses that are missing and suggest adding them to protect the user.
+- For EVERY recommendation, provide a brief, actionable "Negotiation Tip."
+- Instead of just saying "Add a grace period," tell the user exactly what to ask for (e.g., "Request a 15-day grace period to prevent accidental service lockouts").
+- Give the user practical advice on how to push back on unfair terms politely.
+
+6. 📊 FINAL RISK ASSESSMENT:
+- Grade the contract strictly based on this scale:
+  * LOW RISK: Balanced terms, standard industry practice.
+  * MEDIUM RISK: Contains unbalanced terms or is missing standard protections, but no predatory traps. (Most standard contracts fall here).
+  * HIGH RISK: Contains predatory traps, unlimited liability, or severe legal exposure for the user.
+- Provide a 2-sentence justification for the grade.
 
 ---
-
-2. KEY CLAUSES:
-- Identify important clauses such as:
-  Payment, Scope of Work, Timeline, Liability, Termination, Confidentiality, etc.
-- Explain each clause in simple language
-
----
-
-3. RISK ANALYSIS:
-- Identify real-world risks for the user
-- Mention financial, legal, and operational risks
-- Clearly explain the impact of each risk
-
----
-
-4. RED FLAGS (VERY IMPORTANT):
-- Highlight dangerous or unclear terms
-- Examples:
-  - No refund policy
-  - Unlimited liability
-  - Vague deadlines
-  - One-sided terms
-
----
-
-5. ISSUES (SEPARATE VIEW):
-
-Client Side Issues:
-- List problems affecting the client
-
-Contractor Side Issues:
-- List problems affecting the contractor
-
----
-
-6. RECOMMENDATIONS:
-- Give practical improvements
-- Suggestions should be actionable
-- Focus on making the contract safer and clearer
-
----
-
-7. MISSING CLAUSES:
-- List important clauses that are not present but should be included
-- Examples:
-  - Dispute resolution
-  - Data protection
-  - Intellectual property
-  - SLA (Service Level Agreement)
-  - Penalty clauses
-
----
-
-8. FINAL RISK SUMMARY:
-- Overall Risk Level: Low / Medium / High
-- Give a short reason for this rating
-
----
-
-Contract:
-{text}
-  """ 
+Contract Text:
+{context_text}
+"""
     return ai_manager.generate(prompt, model)
