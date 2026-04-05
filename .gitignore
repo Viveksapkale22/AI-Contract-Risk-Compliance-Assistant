@@ -1,12 +1,9 @@
 # --- 🛡️ SECURITY & SECRETS ---
-.env
-*.env
 secrets.json
 
 # --- 🐍 PYTHON & VIRTUAL ENVS ---
 venv/
 .venv/
-env/
 __pycache__/
 *.py[cod]
 *$py.class
