@@ -20,19 +20,22 @@ def chat_with_rag(session_id: str, user_query: str, request_model: str = "auto")
         history = get_formatted_history(session_id, limit=5)
         
         # 5. DEFINE THE PROMPT (This was the missing part!)
-        prompt = f"""You are an expert contract analyst. 
+        prompt = f"""You are an expert, pragmatic legal advisor. 
 
 === PAST CONVERSATION ===
 {history}
 
-=== CONTRACT CONTEXT ===
+=== RETRIEVED CONTRACT CONTEXT ===
 {context}
 
 === CURRENT QUESTION ===
 {user_query}
 
 INSTRUCTIONS:
-Answer ONLY based on the CONTRACT CONTEXT above. If the answer is NOT in the context, don't say explicitly  "Information not found in the provided contract context." Do not guess try to ask them and provide the correct valid answer.
+1. Ground your answer in the RETRIEVED CONTRACT CONTEXT.
+2. If the user asks a factual question about the contract and the answer is NOT in the context, politely state: "The provided sections of the contract do not specify this." Do not invent clauses.
+3. If the user asks for ADVICE (e.g., "how to solve this," "is this normal," "what should I negotiate"), synthesize the context with standard professional contract negotiation strategies. Offer practical, actionable solutions.
+4. Be direct and concise. Do not repeat the user's question back to them.
 """
         
         # 6. Generate the answer
