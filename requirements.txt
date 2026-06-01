@@ -5,6 +5,7 @@ pydantic
 python-dotenv
 requests
 pymongo
+bcrypt
 
 # LangChain Ecosystem
 langchain
