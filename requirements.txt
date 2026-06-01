@@ -4,6 +4,7 @@ python-multipart
 pydantic
 python-dotenv
 requests
+pymongo
 
 # LangChain Ecosystem
 langchain
