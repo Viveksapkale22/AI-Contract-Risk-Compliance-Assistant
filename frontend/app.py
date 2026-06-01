@@ -17,7 +17,13 @@ st.set_page_config(
     menu_items={"About": "AI-Contract-Risk-Compliance-Assistant v2.0"},
 )
 
-API_URL = "http://127.0.0.1:8000"
+# Dynamic Environment Routing Strategy (Local vs Production Failover)
+# Configuration Routing Strategy
+PRODUCTION_API_URL = "https://ai-contract-risk-compliance-assistant-wm39.onrender.com"
+LOCAL_API_URL = "http://127.0.0.1:8000"
+
+# Explicit environment override if set, otherwise we auto-detect during warmup
+API_URL = os.environ.get("BACKEND_API_URL", None)
 
 # ─────────────────────────────────────────────
 #  GLOBAL CSS  — Glossy / Premium Legal Tech
@@ -480,6 +486,7 @@ if not st.session_state.logged_in:
         st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
 
         # ════════════ LOGIN ═══════════════════════════════════
+        # ════════════ LOGIN ═══════════════════════════════════
         if is_login:
             st.markdown("""
             <p style="font-size:0.67rem;letter-spacing:0.15em;color:#4a4840;
@@ -487,40 +494,73 @@ if not st.session_state.logged_in:
             """, unsafe_allow_html=True)
 
             u_val = st.text_input("Username", placeholder="your_username", key="li_u")
-            p_val = st.text_input("Password", placeholder="••••••••",
-                                  type="password", key="li_p")
+            p_val = st.text_input("Password", placeholder="••••••••", type="password", key="li_p")
             st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
 
-            if st.button("Access Dashboard  →", use_container_width=True,
-                         type="primary", key="btn_li"):
+            if st.button("Access Dashboard  →", use_container_width=True, type="primary", key="btn_li"):
                 if not u_val or not p_val:
                     st.warning("Please enter username and password.")
                 else:
-                    with st.spinner("Authenticating…"):
-                        try:
-                            r = requests.post(
-                                f"{API_URL}/api/login",
-                                json={"username": u_val, "password": p_val},
-                                timeout=8,
-                            )
-                            if r.status_code == 200:
-                                st.session_state.logged_in = True
-                                st.session_state.user_info = r.json().get("user_info", {})
-                                st.session_state.username  = u_val
-                                st.rerun()
-                            elif r.status_code == 401:
-                                st.error("❌  Invalid username or password.")
-                            else:
-                                st.error(f"Login failed: {r.json().get('detail','Unknown error')}")
-                        except requests.exceptions.ConnectionError:
-                            st.error("⚠️  Backend offline — launch main.py first.")
-                        except Exception as ex:
-                            st.error(f"Error: {ex}")
+                    # ── SIMULTANEOUS PRE-FLIGHT WARMUP INTERCEPTOR ──
+                    backend_online = False
+                    status_placeholder = st.empty()
+                    
+                    # If an environment variable is explicitly forced, use it directly
+                    if API_URL:
+                        backend_online = True
+                    else:
+                        with status_placeholder:
+                            st.info("📡 Scanning for available backend environments...")
+                        
+                        for attempt in range(1, 16):
+                            # 1. Bias toward Local Host environment check first
+                            try:
+                                response = requests.get(f"{LOCAL_API_URL}/health", timeout=1.5)
+                                if response.status_code == 200:
+                                    API_URL = LOCAL_API_URL
+                                    backend_online = True
+                                    break
+                            except requests.exceptions.RequestException:
+                                pass
 
-            st.markdown("""
-            <p style="text-align:center;font-size:0.72rem;color:#4a4840;margin-top:1rem;">
-                No account yet? Click <strong style="color:#c9a84c;">Create Account</strong> above.
-            </p>""", unsafe_allow_html=True)
+                            # 2. Check live Production environment instantly after
+                            try:
+                                response = requests.get(f"{PRODUCTION_API_URL}/health", timeout=1.5)
+                                if response.status_code == 200:
+                                    API_URL = PRODUCTION_API_URL
+                                    backend_online = True
+                                    break
+                            except requests.exceptions.RequestException:
+                                pass
+                            
+                            with status_placeholder:
+                                st.warning(f"⏳ **Warming up resources...** Checking Local & Render clusters simultaneously. Please hold. (Attempt {attempt}/15)")
+                            time.sleep(3)
+                    
+                    status_placeholder.empty()
+                    
+                    if not backend_online:
+                        st.error("🚨 **Cluster Unresponsive:** Neither your local nor production backend instances responded in time. Please ensure one is active and refresh.")
+                    else:
+                        # Proceed with login using the discovered API_URL
+                        with st.spinner("Authenticating…"):
+                            try:
+                                r = requests.post(
+                                    f"{API_URL}/api/login",
+                                    json={"username": u_val, "password": p_val},
+                                    timeout=12,
+                                )
+                                if r.status_code == 200:
+                                    st.session_state.logged_in = True
+                                    st.session_state.user_info = r.json().get("user_info", {})
+                                    st.session_state.username  = u_val
+                                    st.rerun()
+                                elif r.status_code == 401:
+                                    st.error("❌  Invalid username or password.")
+                                else:
+                                    st.error(f"Login failed: {r.json().get('detail','Unknown error')}")
+                            except Exception as ex:
+                                st.error(f"Error executing authentication matrix: {ex}")
 
         # ════════════ REGISTER ════════════════════════════════
         else:
@@ -561,8 +601,7 @@ if not st.session_state.logged_in:
             agree = st.checkbox("I agree to the Terms of Service and Privacy Policy", key="rg_agree")
             st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
 
-            if st.button("Create My Account  →", use_container_width=True,
-                         type="primary", key="btn_reg"):
+            if st.button("Create My Account  →", use_container_width=True, type="primary", key="btn_reg"):
                 errs = []
                 if not all([r_name, r_user, r_email, r_pw1, r_pw2]):
                     errs.append("All fields are required.")
@@ -577,26 +616,61 @@ if not st.session_state.logged_in:
                 if errs:
                     for e in errs: st.error(e)
                 else:
-                    with st.spinner("Creating your account…"):
-                        try:
-                            r = requests.post(
-                                f"{API_URL}/api/register",
-                                json={"username": r_user, "email": r_email,
-                                      "password": r_pw1, "name": r_name},
-                                timeout=8,
-                            )
-                            if r.status_code == 200:
-                                st.success(f"✅  Account created! Welcome, {r_name}. Please sign in.")
-                                st.session_state.auth_tab = "login"
-                                time.sleep(1.5)
-                                st.rerun()
-                            else:
-                                st.error(f"❌  {r.json().get('detail','Registration failed.')}")
-                        except requests.exceptions.ConnectionError:
-                            st.error("⚠️  Backend offline — launch main.py first.")
-                        except Exception as ex:
-                            st.error(f"Error: {ex}")
+                    # ── SIMULTANEOUS PRE-FLIGHT WARMUP INTERCEPTOR (REGISTRATION) ──
+                    backend_online = False
+                    status_placeholder = st.empty()
+                    
+                    if API_URL:
+                        backend_online = True
+                    else:
+                        with status_placeholder:
+                            st.info("📡 Scanning for available backend environments...")
+                            
+                        for attempt in range(1, 16):
+                            try:
+                                response = requests.get(f"{LOCAL_API_URL}/health", timeout=1.5)
+                                if response.status_code == 200:
+                                    API_URL = LOCAL_API_URL
+                                    backend_online = True
+                                    break
+                            except requests.exceptions.RequestException:
+                                pass
 
+                            try:
+                                response = requests.get(f"{PRODUCTION_API_URL}/health", timeout=1.5)
+                                if response.status_code == 200:
+                                    API_URL = PRODUCTION_API_URL
+                                    backend_online = True
+                                    break
+                            except requests.exceptions.RequestException:
+                                pass
+                            
+                            with status_placeholder:
+                                st.warning(f"⏳ **Warming up resources...** Checking Local & Render clusters simultaneously. Please hold. (Attempt {attempt}/15)")
+                            time.sleep(3)
+                        
+                    status_placeholder.empty()
+                    
+                    if not backend_online:
+                        st.error("🚨 **Cluster Unresponsive:** Neither your local nor production backend instances responded in time. Please ensure one is active and refresh.")
+                    else:
+                        with st.spinner("Creating your account…"):
+                            try:
+                                r = requests.post(
+                                    f"{API_URL}/api/register",
+                                    json={"username": r_user, "email": r_email,
+                                          "password": r_pw1, "name": r_name},
+                                    timeout=12,
+                                )
+                                if r.status_code == 200:
+                                    st.success(f"✅  Account created! Welcome, {r_name}. Please sign in.")
+                                    st.session_state.auth_tab = "login"
+                                    time.sleep(1.5)
+                                    st.rerun()
+                                else:
+                                    st.error(f"❌  {r.json().get('detail','Registration failed.')}")
+                            except Exception as ex:
+                                st.error(f"Error: {ex}")
         st.markdown("</div>", unsafe_allow_html=True)  # close glass card
 
         st.markdown("""
