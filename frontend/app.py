@@ -10,10 +10,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 # ─────────────────────────────────────────────
 #  CONFIG
 # ─────────────────────────────────────────────
+# 1. Force the sidebar to always start open when the app loads
 st.set_page_config(
     page_title="LegalAI Pro · Contract Intelligence",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="expanded",  # <-- Make sure this is exactly "expanded"
     menu_items={"About": "AI-Contract-Risk-Compliance-Assistant v2.0"},
 )
 
@@ -98,9 +99,8 @@ html, body, .stApp {
 }
 
 /* ══ Hide Streamlit chrome ═══════════════════════════════════ */
-#MainMenu, footer, header { visibility: hidden !important; }
-[data-testid="stToolbar"]   { display: none !important; }
-[data-testid="stDecoration"]{ display: none !important; }
+/* ══ Modified Chrome Layout ══ */
+footer { visibility: hidden !important; } /* Only hide the footer */
 
 /* ══ Sidebar ═════════════════════════════════════════════════ */
 [data-testid="stSidebar"] {
@@ -685,6 +685,10 @@ if not st.session_state.logged_in:
 # ═════════════════════════════════════════════════════════════
 #  🧭  SIDEBAR  (authenticated)
 # ═════════════════════════════════════════════════════════════
+
+# ═════════════════════════════════════════════════════════════
+#  🧭  SIDEBAR  (authenticated)
+# ═════════════════════════════════════════════════════════════
 ui = st.session_state.user_info or {}
 display_name = ui.get("name", st.session_state.username)
 initials = "".join(w[0].upper() for w in display_name.split()[:2]) or "?"
@@ -730,11 +734,29 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    # Health check
+    # ── HEALTH CHECK ENGINE (FULLY UPDATED DUAL-CLUSTER ROUTING) ──
     section_label("System Status")
     if st.button("⟳  Refresh Services", use_container_width=True):
+        LOCAL_API_URL = "http://127.0.0.1:8000"
+        PRODUCTION_API_URL = "https://ai-contract-risk-compliance-assistant-wm39.onrender.com"
+        
+        # Pull global variable or default fallback target
         try:
-            h = requests.get(f"{API_URL}/health?refresh=true", timeout=4).json()
+            target_url = API_URL
+        except NameError:
+            target_url = None
+
+        # Auto-detect live cluster environment if not globally captured yet
+        if not target_url:
+            try:
+                requests.get(f"{LOCAL_API_URL}/health", timeout=1.0)
+                target_url = LOCAL_API_URL
+            except requests.exceptions.RequestException:
+                target_url = PRODUCTION_API_URL
+
+        try:
+            # 30-second budget fallback cycle option handled via deep engine check
+            h = requests.get(f"{target_url}/health?refresh=true", timeout=6.0).json()
             back = h.get("backend", {})
             st.markdown(
                 svc_chip("FastAPI Backend", True)
@@ -743,7 +765,26 @@ with st.sidebar:
                 unsafe_allow_html=True,
             )
         except Exception:
-            st.error("Cannot reach backend.")
+            # Try the cross-environment alternative endpoint before giving up completely
+            try:
+                alt_url = PRODUCTION_API_URL if target_url == LOCAL_API_URL else LOCAL_API_URL
+                h = requests.get(f"{alt_url}/health?refresh=true", timeout=5.0).json()
+                back = h.get("backend", {})
+                st.markdown(
+                    svc_chip("FastAPI Backend", True)
+                    + svc_chip("Gemini API",    back.get("gemini", False))
+                    + svc_chip("Ollama / Local",back.get("local",  False)),
+                    unsafe_allow_html=True,
+                )
+            except Exception:
+                # Render full diagnostic failure status chips beautifully
+                st.markdown(
+                    svc_chip("FastAPI Backend", False)
+                    + svc_chip("Gemini API",    False)
+                    + svc_chip("Ollama / Local",False),
+                    unsafe_allow_html=True,
+                )
+                st.error("🚨 Cloud clusters are asleep or unreachable.")
 
     gloss_hr(0.09)
     section_label("Navigation")

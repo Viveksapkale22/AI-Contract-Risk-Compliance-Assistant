@@ -5,7 +5,10 @@ pydantic
 python-dotenv
 requests
 pymongo
+<<<<<<< HEAD
 bcrypt
+=======
+>>>>>>> 7be0ece (pip and frontend update)
 
 # LangChain Ecosystem
 langchain
@@ -20,3 +23,7 @@ pypdf
 
 # Google SDK
 google-genai
+<<<<<<< HEAD
+=======
+
+>>>>>>> 7be0ece (pip and frontend update)
