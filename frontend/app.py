@@ -463,15 +463,7 @@ if not st.session_state.logged_in:
         </div>
         """, unsafe_allow_html=True)
 
-        # ── Glass card ────────────────────────────────────────
-        st.markdown("""
-        <div style="background:rgba(12,15,28,0.8);
-                    border:1px solid rgba(255,255,255,0.08);
-                    border-radius:24px;padding:2rem;
-                    backdrop-filter:blur(24px);
-                    box-shadow:0 24px 80px rgba(0,0,0,0.6),
-                               inset 0 1px 0 rgba(255,255,255,0.05);">
-        """, unsafe_allow_html=True)
+  
 
         # ── Tab switch ────────────────────────────────────────
         t1, t2 = st.columns(2)
