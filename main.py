@@ -1,10 +1,12 @@
 # main.pyimport os
 import time
+import os
 from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from pydantic import BaseModel
 from typing import Literal
 from dotenv import load_dotenv
+
 
 # 1. 🛡️ SMART CLOUD-AWARE ENVIRONMENT LOADING
 BASE_DIR = Path(__file__).resolve().parent
