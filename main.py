@@ -1,36 +1,25 @@
-# main.pyimport os
-import time
+# main.py
 import os
+import time
 from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from pydantic import BaseModel
 from typing import Literal
 from dotenv import load_dotenv
 
-
-# 1. 🛡️ SMART CLOUD-AWARE ENVIRONMENT LOADING
+# 1. 🛡️ STRONG ENVIRONMENT LOADING
 BASE_DIR = Path(__file__).resolve().parent
 ENV_PATH = BASE_DIR / ".env"
+load_dotenv(dotenv_path=ENV_PATH, override=True)
 
-# Only attempt to load a physical .env file if it exists locally
-if ENV_PATH.exists():
-    load_dotenv(dotenv_path=ENV_PATH, override=True)
-    print(f"-> [LOCAL] Loaded configuration constants from: {ENV_PATH}")
-else:
-    print("-> [PRODUCTION] No physical .env file found. Reading variable parameters directly from system cloud space.")
-
-# Fallback check mapping chain: checks GEMINI_API_KEY first, then checks your specified GEMINI_API_URL if that's what you saved on Render
-api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GEMINI_API_URL")
-
-# Debug print to Render console logs on startup
+# Debug print to console on startup
 print("--- 🛡️ ENVIRONMENT SECURITY CHECK ---")
-if api_key:
-    # Safely mask the key so it's visible but secure in the logs
-    print(f"-> Status: GEMINI KEY FOUND ✅ ({api_key[:4]}...{api_key[-4:]})")
-    # Bind it cleanly to the standard variable name your code packages expect
-    os.environ["GEMINI_API_KEY"] = api_key
+if ENV_PATH.exists():
+    api_key = os.getenv("GEMINI_API_KEY")
+    status = f"FOUND ✅ ({api_key[:4]}...{api_key[-4:]})" if api_key else "KEY MISSING ❌"
+    print(f"-> .env at: {ENV_PATH}\n-> Status: {status}")
 else:
-    print("-> Status: GEMINI KEY MISSING ❌ (Check your Render environment dashboard keys)")
+    print(f"-> Status: .env NOT FOUND AT {ENV_PATH} ❌")
 print("------------------------------------\n")
 
 

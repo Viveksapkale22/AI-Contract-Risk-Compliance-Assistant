@@ -7,7 +7,7 @@ venv/
 __pycache__/
 *.py[cod]
 *$py.class
-
+.env
 # --- 📦 DATABASE & STORAGE ---
 # Ignore the FAISS vector database and uploaded PDFs
 backend_logic/storage/
@@ -15,6 +15,7 @@ backend_logic/storage/
 *.sqlite
 *.faiss
 *.pkl
+
 
 # --- 🤖 MODEL CACHES ---
 .ollama/

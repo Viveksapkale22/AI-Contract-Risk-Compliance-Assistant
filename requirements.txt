@@ -14,6 +14,7 @@ langchain-community
 langchain-text-splitters
 langchain-ollama
 langchain-google-genai
+langchain-openai
 
 # Vector Database & Document Processing
 faiss-cpu
@@ -21,4 +22,5 @@ pypdf
 
 # Google SDK
 google-genai
+openai
 
