@@ -23,8 +23,9 @@ st.set_page_config(
 PRODUCTION_API_URL = "https://ai-contract-risk-compliance-assistant-wm39.onrender.com"
 LOCAL_API_URL = "http://127.0.0.1:8000"
 
-# Explicit environment override if set, otherwise we auto-detect during warmup
-API_URL = os.environ.get("BACKEND_API_URL") or LOCAL_API_URL
+# Explicit environment override if set. If not provided, detection runs at runtime
+# so we don't assume Local is available when it's not.
+API_URL = os.environ.get("BACKEND_API_URL") or None
 
 # ─────────────────────────────────────────────
 #  GLOBAL CSS  — Glossy / Premium Legal Tech
@@ -505,38 +506,50 @@ if not st.session_state.logged_in:
                     backend_online = False
                     status_placeholder = st.empty()
                     
-                    # If an environment variable is explicitly forced, use it directly
+                    # If an environment variable is explicitly forced, validate it first.
                     if API_URL:
-                        backend_online = True
-                    else:
-                        with status_placeholder:
-                            st.info("📡 Scanning for available backend environments...")
-                        
-                        for attempt in range(1, 16):
-                            # 1. Bias toward Local Host environment check first
-                            try:
-                                response = requests.get(f"{LOCAL_API_URL}/health", timeout=1.5)
-                                if response.status_code == 200:
-                                    API_URL = LOCAL_API_URL
-                                    backend_online = True
-                                    break
-                            except requests.exceptions.RequestException:
-                                pass
+                        # Validate the provided BACKEND_API_URL quickly
+                        try:
+                            r = requests.get(f"{API_URL}/health", timeout=2.0)
+                            if r.status_code == 200:
+                                backend_online = True
+                            else:
+                                # If the forced URL doesn't respond, clear it so detection can try others
+                                API_URL = None
+                        except requests.exceptions.RequestException:
+                            API_URL = None
 
-                            # 2. Check live Production environment instantly after
+                    if not API_URL:
+                        with status_placeholder:
+                            st.info("📡 Scanning for available backend environments (Local then Production)...")
+
+                        # Helper to probe an endpoint's /health path
+                        def probe(url, timeout=1.5):
                             try:
-                                response = requests.get(f"{PRODUCTION_API_URL}/health", timeout=1.5)
-                                if response.status_code == 200:
-                                    API_URL = PRODUCTION_API_URL
-                                    backend_online = True
-                                    break
+                                r = requests.get(f"{url}/health", timeout=timeout)
+                                return r.status_code == 200
                             except requests.exceptions.RequestException:
-                                pass
-                            
+                                return False
+
+                        # Try up to N attempts with a small backoff
+                        max_attempts = 10
+                        for attempt in range(1, max_attempts + 1):
+                            # Prefer local first, then production
+                            if probe(LOCAL_API_URL):
+                                API_URL = LOCAL_API_URL
+                                backend_online = True
+                                break
+                            if probe(PRODUCTION_API_URL):
+                                API_URL = PRODUCTION_API_URL
+                                backend_online = True
+                                break
+
                             with status_placeholder:
-                                st.warning(f"⏳ **Warming up resources...** Checking Local & Render clusters simultaneously. Please hold. (Attempt {attempt}/15)")
-                            time.sleep(3)
-                    
+                                st.warning(f"⏳ Warming up backends — attempt {attempt}/{max_attempts}. Trying Local then Production...")
+
+                            # Exponential-ish backoff (2,3,4,5,.. seconds) but bounded
+                            time.sleep(min(1 + attempt, 6))
+
                     status_placeholder.empty()
                     
                     if not backend_online:

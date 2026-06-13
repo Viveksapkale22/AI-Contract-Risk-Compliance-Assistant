@@ -12,16 +12,25 @@ from dotenv import load_dotenv
 # 1. 🛡️ STRONG ENVIRONMENT LOADING
 BASE_DIR = Path(__file__).resolve().parent
 ENV_PATH = BASE_DIR / ".env"
+# Load from a .env if present, but do not rely on it in production platforms like Render.
 load_dotenv(dotenv_path=ENV_PATH, override=True)
 
 # Debug print to console on startup
 print("--- 🛡️ ENVIRONMENT SECURITY CHECK ---")
-if ENV_PATH.exists():
-    api_key = os.getenv("GEMINI_API_KEY")
-    status = f"FOUND ✅ ({api_key[:4]}...{api_key[-4:]})" if api_key else "KEY MISSING ❌"
-    print(f"-> .env at: {ENV_PATH}\n-> Status: {status}")
+# Always read the GEMINI_API_KEY from the environment (Render sets env vars directly)
+api_key = os.getenv("GEMINI_API_KEY")
+# Mask the key for logs if present
+if api_key:
+    masked = f"{api_key[:4]}...{api_key[-4:]}" if len(api_key) > 8 else "****"
+    key_status = f"FOUND ✅ ({masked})"
 else:
-    print(f"-> Status: .env NOT FOUND AT {ENV_PATH} ❌")
+    key_status = "KEY MISSING ❌"
+# Report both .env presence and the env var status
+if ENV_PATH.exists():
+    print(f"-> .env found at: {ENV_PATH}")
+else:
+    print(f"-> .env NOT FOUND at: {ENV_PATH} (this is OK on Render) ")
+print(f"-> GEMINI_API_KEY env: {key_status}")
 print("------------------------------------\n")
 
 
