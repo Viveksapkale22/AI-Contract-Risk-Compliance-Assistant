@@ -6,8 +6,6 @@ from datetime import datetime
 import bcrypt
 from gridfs import GridFS
 
-sessions_collection = db["sessions"]
-sessions_collection.create_index([("session_id", pymongo.ASCENDING)], unique=True)
 
 
 # --- MongoDB Setup ---
@@ -27,6 +25,8 @@ history_collection = db["analysis_history"]
 # Indexes (Makes lookups fast and enforces uniqueness)
 users_collection.create_index([("username", pymongo.ASCENDING)], unique=True)
 history_collection.create_index([("session_id", pymongo.ASCENDING)], unique=True)
+sessions_collection = db["sessions"]
+sessions_collection.create_index([("session_id", pymongo.ASCENDING)], unique=True)
 
 
 # ==========================================
