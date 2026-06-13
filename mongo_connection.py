@@ -6,6 +6,10 @@ from datetime import datetime
 import bcrypt
 from gridfs import GridFS
 
+sessions_collection = db["sessions"]
+sessions_collection.create_index([("session_id", pymongo.ASCENDING)], unique=True)
+
+
 # --- MongoDB Setup ---
 # Prefer MONGO_URI from environment; fall back to embedded URI if not set (repo previously contained one).
 DEFAULT_MONGO_URI = "mongodb+srv://viveksapkale0022_db_user:ldvBxaR6509CEkBG@cluster0.hgkqkwy.mongodb.net/?appName=Cluster0"
@@ -142,3 +146,55 @@ def get_file_by_session(session_id: str):
     filename = getattr(grid_out, "filename", None) or grid_out._file.get("filename")
     username = grid_out._file.get("username") if grid_out._file else None
     return {"file_bytes": file_bytes, "filename": filename, "username": username}
+
+
+# ==========================================
+# 💬 CHAT SESSIONS & HISTORY (Replaces in-memory SESSIONS)
+# ==========================================
+
+def create_mongo_session(session_id: str, filename: str, model_type: str):
+    """Creates a new persistent chat session."""
+    sessions_collection.insert_one({
+        "session_id": session_id,
+        "filename": filename,
+        "model_type": model_type,
+        "history": [],
+        "created_at": datetime.now()
+    })
+
+def add_mongo_chat(session_id: str, role: str, content: str):
+    """Appends a new message to the session's history."""
+    sessions_collection.update_one(
+        {"session_id": session_id},
+        {"$push": {"history": {"role": role, "content": content}}}
+    )
+
+def get_mongo_session(session_id: str):
+    """Retrieves the full session document."""
+    return sessions_collection.find_one({"session_id": session_id}, {"_id": 0})    
+
+
+# ==========================================
+# 🧠 FAISS VECTOR STORAGE VIA GRIDFS
+# ==========================================
+
+def save_faiss_to_gridfs(session_id: str, index_bytes: bytes, pkl_bytes: bytes):
+    """Saves the two FAISS local files into MongoDB GridFS."""
+    # Delete older versions if they exist to prevent bloating
+    for f in fs.find({"session_id": session_id, "file_type": {"$in": ["faiss_index", "faiss_pkl"]}}):
+        fs.delete(f._id)
+        
+    fs.put(index_bytes, filename=f"{session_id}_index.faiss", session_id=session_id, file_type="faiss_index")
+    fs.put(pkl_bytes, filename=f"{session_id}_index.pkl", session_id=session_id, file_type="faiss_pkl")
+
+def load_faiss_from_gridfs(session_id: str):
+    """Retrieves the FAISS index and pkl files from GridFS."""
+    index_file = fs.find_one({"session_id": session_id, "file_type": "faiss_index"})
+    pkl_file = fs.find_one({"session_id": session_id, "file_type": "faiss_pkl"})
+    
+    if not index_file or not pkl_file:
+        return None
+        
+    return index_file.read(), pkl_file.read()
+
+    
