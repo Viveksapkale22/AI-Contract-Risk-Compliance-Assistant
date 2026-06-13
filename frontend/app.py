@@ -20,12 +20,12 @@ st.set_page_config(
 
 # Dynamic Environment Routing Strategy (Local vs Production Failover)
 # Configuration Routing Strategy
-PRODUCTION_API_URL = "https://ai-contract-risk-compliance-assistant-wm39.onrender.com"
-
+#PRODUCTION_API_URL = "https://ai-contract-risk-compliance-assistant-wm39.onrender.com"
+PRODUCTION_API_URL = ""
 LOCAL_API_URL = "http://127.0.0.1:8000"
 
 # Explicit environment override if set, otherwise we auto-detect during warmup
-API_URL = os.environ.get("BACKEND_API_URL", None)
+API_URL = os.environ.get("BACKEND_API_URL") or LOCAL_API_URL
 
 # ─────────────────────────────────────────────
 #  GLOBAL CSS  — Glossy / Premium Legal Tech

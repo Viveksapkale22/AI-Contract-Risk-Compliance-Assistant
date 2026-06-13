@@ -1,13 +1,20 @@
 # mongo_connection.py
+import os
 import pymongo
 from pymongo import MongoClient
 from datetime import datetime
 import bcrypt
+from gridfs import GridFS
 
 # --- MongoDB Setup ---
-MONGO_URI = "mongodb+srv://viveksapkale0022_db_user:ldvBxaR6509CEkBG@cluster0.hgkqkwy.mongodb.net/?appName=Cluster0"
+# Prefer MONGO_URI from environment; fall back to embedded URI if not set (repo previously contained one).
+DEFAULT_MONGO_URI = "mongodb+srv://viveksapkale0022_db_user:ldvBxaR6509CEkBG@cluster0.hgkqkwy.mongodb.net/?appName=Cluster0"
+MONGO_URI = os.getenv("MONGO_URI", DEFAULT_MONGO_URI)
 client = MongoClient(MONGO_URI)
 db = client["legalai_database"]
+
+# GridFS for file storage
+fs = GridFS(db)
 
 # Collections
 users_collection = db["users"]
@@ -75,8 +82,17 @@ def verify_user(username: str, password: str):
 # 📜 HISTORY & SESSION LOGIC
 # ==========================================
 
-def save_analysis_history(username: str, session_id: str, filename: str, model: str, analysis: str):
-    """Saves a newly processed contract into MongoDB."""
+def save_file_to_gridfs(username: str, session_id: str, filename: str, file_bytes: bytes):
+    """Stores uploaded file in GridFS and returns the stored file_id (string) or None on failure."""
+    try:
+        file_id = fs.put(file_bytes, filename=filename, username=username, session_id=session_id, upload_date=datetime.now())
+        return str(file_id)
+    except Exception:
+        return None
+
+
+def save_analysis_history(username: str, session_id: str, filename: str, model: str, analysis: str, file_id: str = None):
+    """Saves a newly processed contract into MongoDB. Optionally links to GridFS file_id."""
     record = {
         "username": username,
         "session_id": session_id,
@@ -86,6 +102,8 @@ def save_analysis_history(username: str, session_id: str, filename: str, model: 
         "analysis": analysis,
         "q_count": 0
     }
+    if file_id:
+        record["file_id"] = file_id
     try:
         history_collection.insert_one(record)
     except pymongo.errors.DuplicateKeyError:
@@ -105,3 +123,22 @@ def increment_q_count(session_id: str):
         {"session_id": session_id},
         {"$inc": {"q_count": 1}}
     )
+
+
+def get_history_record(session_id: str):
+    """Fetch a single history record by session_id (no _id)."""
+    rec = history_collection.find_one({"session_id": session_id}, {"_id": 0})
+    return rec
+
+
+def get_file_by_session(session_id: str):
+    """Retrieve file stored in GridFS by session_id. Returns dict with bytes, filename, and username or None."""
+    # GridFS stores extra kwargs at the top-level of the file document; find the latest file for this session
+    grid_out = fs.find_one({"session_id": session_id})
+    if not grid_out:
+        return None
+    file_bytes = grid_out.read()
+    # filename is available as attribute; metadata like username/session_id are stored in the raw file document
+    filename = getattr(grid_out, "filename", None) or grid_out._file.get("filename")
+    username = grid_out._file.get("username") if grid_out._file else None
+    return {"file_bytes": file_bytes, "filename": filename, "username": username}

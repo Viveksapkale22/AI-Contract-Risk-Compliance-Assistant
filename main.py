@@ -3,6 +3,8 @@ import os
 import time
 from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.responses import StreamingResponse
+import io
 from pydantic import BaseModel
 from typing import Literal
 from dotenv import load_dotenv
@@ -32,8 +34,9 @@ from backend_logic.model_provider import ai_manager
 
 # 🔥 MONGODB IMPORTS (Replacing the old auth logic)
 from mongo_connection import (
-    create_user, verify_user, 
-    save_analysis_history, get_user_history, increment_q_count
+    create_user, verify_user,
+    save_analysis_history, get_user_history, increment_q_count, save_file_to_gridfs,
+    get_history_record, get_file_by_session
 )
 
 # 3. 🚀 APP INITIALIZATION
@@ -133,13 +136,16 @@ async def upload_pdf(
         # 5. Store the analysis as the first 'System' message for RAG context
         add_chat(session_id, "system", analysis_result)
 
-        # 6. SAVE TO MONGODB PERMANENTLY
+        # 6. SAVE UPLOADED FILE (GridFS) & SAVE METADATA TO MONGODB PERMANENTLY
+        file_id = save_file_to_gridfs(username=username, session_id=session_id, filename=file.filename, file_bytes=file_bytes)
+
         save_analysis_history(
             username=username,
             session_id=session_id,
             filename=file.filename,
             model=model,
-            analysis=analysis_result
+            analysis=analysis_result,
+            file_id=file_id
         )
 
         return {
@@ -153,6 +159,26 @@ async def upload_pdf(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload Error: {str(e)}")
+
+
+# ==========================================
+# 📥 FILE DOWNLOAD / RETRIEVE
+# ==========================================
+
+@app.get("/download-file")
+def download_file(session_id: str, username: str):
+    """Download the original uploaded PDF for a session. Ownership enforced by username."""
+    # Verify the session belongs to the requesting user
+    rec = get_history_record(session_id)
+    if not rec or rec.get("username") != username:
+        raise HTTPException(status_code=403, detail="Not authorized to access this file")
+
+    file_doc = get_file_by_session(session_id)
+    if not file_doc:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    return StreamingResponse(io.BytesIO(file_doc["file_bytes"]), media_type="application/pdf",
+                             headers={"Content-Disposition": f'attachment; filename="{file_doc["filename"]}"'})
 
 
 # ==========================================
