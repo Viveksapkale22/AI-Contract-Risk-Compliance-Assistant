@@ -36,6 +36,30 @@ API_URL = st.session_state.API_URL
 # ─────────────────────────────────────────────
 st.markdown("""
 <style>
+/* ══ Pro Tier Specifics ═════════════════════════════════════ */
+.pro-badge {
+    background: linear-gradient(135deg, #4c1d95 0%, #7c3aed 100%);
+    color: #f5e0a0;
+    border: 1px solid #c9a84c;
+    border-radius: 99px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    padding: 3px 10px;
+    box-shadow: 0 0 12px rgba(124, 58, 237, 0.4);
+    text-transform: uppercase;
+}
+.free-badge {
+    background: rgba(255,255,255,0.05);
+    color: #9b9789;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 99px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    padding: 3px 10px;
+    text-transform: uppercase;
+}
 /* ══ Fonts ══════════════════════════════════════════════════ */
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -709,6 +733,8 @@ if not st.session_state.logged_in:
 #  🧭  SIDEBAR  (authenticated)
 # ═════════════════════════════════════════════════════════════
 ui = st.session_state.user_info or {}
+user_tier = ui.get("tier", "free")
+tier_badge = "<span class='pro-badge'>💎 PRO</span>" if user_tier == "pro" else "<span class='free-badge'>FREE PLAN</span>"
 display_name = ui.get("name", st.session_state.username)
 initials = "".join(w[0].upper() for w in display_name.split()[:2]) or "?"
 
@@ -732,23 +758,28 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    # User identity card
+
+
+    # --- 2. Update the User Identity Card to include the badge ---
     st.markdown(f"""
     <div style="background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.16);
                 border-radius:14px;padding:0.85rem 1rem;margin-bottom:1.1rem;
                 box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">
-        <div style="display:flex;align-items:center;gap:10px;">
-            <div style="width:36px;height:36px;border-radius:10px;flex-shrink:0;
-                        background:linear-gradient(135deg,#8c6520,#c9a84c);
-                        display:flex;align-items:center;justify-content:center;
-                        font-size:0.85rem;font-weight:700;color:#07090f;">{initials}</div>
-            <div>
-                <div style="font-weight:600;color:#e8c97a;font-size:0.87rem;
-                            line-height:1.2;">{display_name}</div>
-                <div style="font-size:0.67rem;color:#4a4840;margin-top:2px;">
-                    @{st.session_state.username}
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <div style="width:36px;height:36px;border-radius:10px;flex-shrink:0;
+                            background:linear-gradient(135deg,#8c6520,#c9a84c);
+                            display:flex;align-items:center;justify-content:center;
+                            font-size:0.85rem;font-weight:700;color:#07090f;">{initials}</div>
+                <div>
+                    <div style="font-weight:600;color:#e8c97a;font-size:0.87rem;
+                                line-height:1.2;">{display_name}</div>
+                    <div style="font-size:0.67rem;color:#4a4840;margin-top:2px;">
+                        @{st.session_state.username}
+                    </div>
                 </div>
             </div>
+            <div>{tier_badge}</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -811,7 +842,7 @@ with st.sidebar:
     default_i = 1 if st.query_params.get("page") == "agent" else 0
     if st.query_params.get("page") == "agent":
         st.query_params.clear()
-    menu = st.radio("nav", ["🏠  Dashboard", "⚖  AI Agreement Agent"],
+    menu = st.radio("nav", ["🏠  Dashboard", "⚖  AI Agreement Agent","💎 Upgrade to Pro"],
                     index=default_i, label_visibility="collapsed")
 
     gloss_hr(0.07)
@@ -1019,8 +1050,7 @@ elif menu == "⚖  AI Agreement Agent":
 
     model_choice = st.session_state.model_choice
     gloss_hr(0.09)
-
-    # ── Upload ────────────────────────────────────────────────
+# ── Upload ────────────────────────────────────────────────
     section_label("Document Upload")
     ufile = st.file_uploader(
         "Drag & drop contract PDF, or click to browse",
@@ -1046,6 +1076,7 @@ elif menu == "⚖  AI Agreement Agent":
             files={"file": (ufile.name, ufile.getvalue(), "application/pdf")},
             params={"model": model_choice, "username": st.session_state.username},
         )
+        
         if res.status_code == 200:
             data = res.json()
             st.session_state.analysis_done      = True
@@ -1061,6 +1092,18 @@ elif menu == "⚖  AI Agreement Agent":
             })
             prog.empty()
             st.rerun()
+            
+        # 🆕 CAUGHT THE FREE LIMIT ERROR
+        elif res.status_code == 403:
+            prog.empty()
+            st.error("🔒 **Free Limit Reached!**")
+            st.warning("You have used your 1 free contract analysis. Please upgrade your account to unlock unlimited AI document processing.")
+            
+            # This button sets a URL param to jump to the upgrade page
+            if st.button("Unlock Unlimited Access Now →", type="primary"):
+                st.query_params["page"] = "upgrade" 
+                st.rerun()
+                
         else:
             prog.empty()
             st.error("❌  Failed to process PDF. Check backend logs.")
@@ -1152,3 +1195,58 @@ elif menu == "⚖  AI Agreement Agent":
             </div>
         </div>
         """, unsafe_allow_html=True)
+
+# ═════════════════════════════════════════════════════════════
+#  💎  UPGRADE TO PRO
+# ═════════════════════════════════════════════════════════════
+elif menu == "💎 Upgrade to Pro":
+    page_header("Pro Subscription", "Unlock infinite legal intelligence")
+    
+    if st.session_state.user_info.get("tier") == "pro":
+        st.markdown("""
+        <div style="border:1px solid #7c3aed;border-radius:20px;padding:3rem;text-align:center;
+                    background:linear-gradient(135deg, rgba(76,29,149,0.1) 0%, rgba(18,22,40,0.8) 100%);
+                    box-shadow:0 0 30px rgba(124,58,237,0.15);">
+            <div style="font-size:3.5rem;margin-bottom:1rem;">💎</div>
+            <h2 style="color:#f5e0a0;margin-bottom:0.5rem;">You are a Pro Member!</h2>
+            <p style="color:#9b9789;">Enjoy unlimited contract analysis, deep risk scoring, and full interactive Q&A capabilities.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        # Show Upgrade UI
+        uc1, uc2 = st.columns([1.5, 1])
+        with uc1:
+            st.markdown("""
+            <div style="border:1px solid rgba(124,58,237,0.3);border-radius:20px;padding:2rem;
+                        background:rgba(18,22,40,0.7);backdrop-filter:blur(16px);
+                        box-shadow:0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);">
+                <h3 style="color:#f5e0a0;margin-bottom:1.5rem;font-family:'Playfair Display',serif;">LegalAI Pro Tier</h3>
+                <ul style="color:#f0ece0;line-height:2.2;font-size:0.9rem;list-style-type:none;padding:0;">
+                    <li>✨ <strong>Unlimited</strong> Document Uploads</li>
+                    <li>🧠 Access to Advanced Reasoning Models</li>
+                    <li>⚠️ Infinite Legal Q&A interactions</li>
+                    <li>🔒 Priority Processing Speed</li>
+                </ul>
+                <hr style="border-top:1px solid rgba(255,255,255,0.1);margin:1.5rem 0;">
+                <p style="color:#9b9789;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.1em;">Redeem Promo Code</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            promo_code = st.text_input("Enter your activation key:", placeholder="e.g. EARLYBIRD", key="promo_input")
+            
+            if st.button("Activate Pro Subscription 🚀", type="primary", use_container_width=True):
+                if promo_code:
+                    with st.spinner("Validating code..."):
+                        r = requests.post(
+                            f"{API_URL}/api/upgrade",
+                            json={"username": st.session_state.username, "promo_code": promo_code}
+                        )
+                        if r.status_code == 200:
+                            st.session_state.user_info["tier"] = "pro"
+                            st.success("🎉 Welcome to LegalAI Pro! Your account is upgraded.")
+                            time.sleep(2)
+                            st.rerun()
+                        else:
+                            st.error(f"❌ {r.json().get('detail', 'Invalid Code')}")
+                else:
+                    st.warning("Please enter a promo code.")        

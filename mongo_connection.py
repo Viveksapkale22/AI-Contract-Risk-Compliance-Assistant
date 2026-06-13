@@ -39,27 +39,42 @@ sessions_collection.create_index([("session_id", pymongo.ASCENDING)], unique=Tru
 # 🔐 AUTHENTICATION & REGISTRATION
 # ==========================================
 
+# --- Find your existing create_user function and update the insert_one block ---
 def create_user(username: str, email: str, password: str, name: str):
-    """Registers a new user with email and hashed password."""
-    if users_collection.find_one({"username": username}):
-        return {"status": "error", "message": "Username already exists"}
-    if users_collection.find_one({"email": email}):
-        return {"status": "error", "message": "Email already exists"}
-    
-    # 🛠️ FIX: Use raw bcrypt, encode to bytes, truncate to 72 chars to prevent crashes
-    encoded_password = password[:72].encode('utf-8')
-    salt = bcrypt.gensalt()
-    hashed_password = bcrypt.hashpw(encoded_password, salt).decode('utf-8')
+    # ... (Keep your existing existence checks and password hashing) ...
     
     users_collection.insert_one({
         "username": username,
         "email": email,
         "password": hashed_password,
         "name": name,
+        "tier": "free",  # 🆕 ADD THIS: Default all new users to free
         "created_at": datetime.now()
     })
     return {"status": "success", "message": "User registered successfully"}
 
+# --- Add these two NEW functions at the bottom of the file ---
+
+def can_user_upload(username: str) -> bool:
+    """Checks if a user is allowed to upload based on their tier."""
+    user = users_collection.find_one({"username": username})
+    if not user:
+        return False
+        
+    # Pro users have no limits
+    if user.get("tier") == "pro":
+        return True
+        
+    # Free users: Count how many PDFs they already have in the history collection
+    count = history_collection.count_documents({"username": username})
+    return count < 1  # Returns True if they have 0 uploads, False if they have 1 or more
+
+def upgrade_user_to_pro(username: str):
+    """Upgrades a user's account to the Pro tier."""
+    users_collection.update_one(
+        {"username": username},
+        {"$set": {"tier": "pro"}}
+    )
 def verify_user(username: str, password: str):
     """Verifies a user's password during login."""
     user = users_collection.find_one({"username": username})
@@ -79,6 +94,7 @@ def verify_user(username: str, password: str):
         "user_info": {
             "username": user["username"],
             "name": user.get("name", username)
+            "tier": user.get("tier", "free")
         }
     }
 
@@ -197,4 +213,3 @@ def load_faiss_from_gridfs(session_id: str):
         
     return index_file.read(), pkl_file.read()
 
-    

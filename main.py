@@ -9,6 +9,8 @@ from pydantic import BaseModel
 from typing import Literal
 from dotenv import load_dotenv
 
+
+
 # 1. 🛡️ STRONG ENVIRONMENT LOADING
 BASE_DIR = Path(__file__).resolve().parent
 ENV_PATH = BASE_DIR / ".env"
@@ -45,7 +47,8 @@ from backend_logic.model_provider import ai_manager
 from mongo_connection import (
     create_user, verify_user,
     save_analysis_history, get_user_history, increment_q_count, save_file_to_gridfs,
-    get_history_record, get_file_by_session
+    get_history_record, get_file_by_session, 
+    can_user_upload, upgrade_user_to_pro # 🆕 Add these
 )
 
 # 3. 🚀 APP INITIALIZATION
@@ -68,6 +71,9 @@ class ChatRequest(BaseModel):
     question: str
     model: str = "flash"
 
+class UpgradeRequest(BaseModel):
+    username: str
+    promo_code: str
 
 # --- 🟢 HEALTH CHECK ---
 @app.get("/health")
@@ -124,6 +130,12 @@ async def upload_pdf(
     model: str = "flash", 
     username: str = "vivek"
 ):
+    # 🆕 ADD LIMIT CHECK BEFORE DOING ANY WORK
+    if not can_user_upload(username):
+        raise HTTPException(
+            status_code=403, 
+            detail="FREE_LIMIT_REACHED: You have reached your limit of 1 free contract analysis. Please upgrade to Pro."
+        )
     try:
         # 1. Read binary data
         file_bytes = await file.read()
@@ -216,3 +228,17 @@ def chat(request: ChatRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Chat Error: {str(e)}")
+
+
+@app.post("/api/upgrade")
+def upgrade_account(request: UpgradeRequest):
+    """Validates a promo code and upgrades the user to Pro."""
+    
+    # 🆕 Define your valid promo codes here
+    VALID_PROMOS = ["LEGALAI2026", "PRO_FREE", "EARLYBIRD"]
+    
+    if request.promo_code.upper() in VALID_PROMOS:
+        upgrade_user_to_pro(request.username)
+        return {"status": "success", "message": "Promo code accepted! You are now a Pro user."}
+    else:
+        raise HTTPException(status_code=400, detail="Invalid or expired promo code.")
