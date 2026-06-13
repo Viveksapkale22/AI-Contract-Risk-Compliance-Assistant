@@ -20,12 +20,16 @@ st.set_page_config(
 
 # Dynamic Environment Routing Strategy (Local vs Production Failover)
 # Configuration Routing Strategy
+# Dynamic Environment Routing Strategy (Local vs Production Failover)
 PRODUCTION_API_URL = "https://ai-contract-risk-compliance-assistant-wm39.onrender.com"
 LOCAL_API_URL = "http://127.0.0.1:8000"
 
-# Explicit environment override if set. If not provided, detection runs at runtime
-# so we don't assume Local is available when it's not.
-API_URL = os.environ.get("BACKEND_API_URL") or None
+# --- BUG FIX: Initialize API_URL in session state so it survives reruns ---
+if "API_URL" not in st.session_state:
+    st.session_state.API_URL = os.environ.get("BACKEND_API_URL") or PRODUCTION_API_URL
+
+# Globally assign it so the rest of your code works seamlessly
+API_URL = st.session_state.API_URL
 
 # ─────────────────────────────────────────────
 #  GLOBAL CSS  — Glossy / Premium Legal Tech
@@ -537,10 +541,12 @@ if not st.session_state.logged_in:
                             # Prefer local first, then production
                             if probe(LOCAL_API_URL):
                                 API_URL = LOCAL_API_URL
+                                st.session_state.API_URL = LOCAL_API_URL
                                 backend_online = True
                                 break
                             if probe(PRODUCTION_API_URL):
                                 API_URL = PRODUCTION_API_URL
+                                st.session_state.API_URL = PRODUCTION_API_URL
                                 backend_online = True
                                 break
 
