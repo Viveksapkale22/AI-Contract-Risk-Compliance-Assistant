@@ -93,7 +93,7 @@ def verify_user(username: str, password: str):
         "status": "success",
         "user_info": {
             "username": user["username"],
-            "name": user.get("name", username)
+            "name": user.get("name", username),
             "tier": user.get("tier", "free")
         }
     }
