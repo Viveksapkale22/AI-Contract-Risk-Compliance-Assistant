@@ -235,7 +235,7 @@ def upgrade_account(request: UpgradeRequest):
     """Validates a promo code and upgrades the user to Pro."""
     
     # 🆕 Define your valid promo codes here
-    VALID_PROMOS = ["LEGALAI2026", "PRO_FREE", "EARLYBIRD"]
+    VALID_PROMOS = ["LEGALAI2026", "VIVEK22", "EARLYBIRD"]
     
     if request.promo_code.upper() in VALID_PROMOS:
         upgrade_user_to_pro(request.username)

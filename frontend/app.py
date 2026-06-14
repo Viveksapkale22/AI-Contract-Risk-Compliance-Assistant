@@ -710,8 +710,13 @@ if not st.session_state.logged_in:
                                     st.session_state.auth_tab = "login"
                                     time.sleep(1.5)
                                     st.rerun()
-                                else:
-                                    st.error(f"❌  {r.json().get('detail','Registration failed.')}")
+                                try:
+                                        err_msg = r.json().get('detail', 'Registration failed.')
+                                    except Exception:
+                                        # If .json() fails, we catch it here instead of crashing the app
+                                        err_msg = f"Critical Server Error ({r.status_code}): The backend crashed. Please check your Render logs."
+                                    
+                                    st.error(f"❌  {err_msg}")
                             except Exception as ex:
                                 st.error(f"Error: {ex}")
         st.markdown("</div>", unsafe_allow_html=True)  # close glass card
@@ -1232,7 +1237,7 @@ elif menu == "💎 Upgrade to Pro":
             </div>
             """, unsafe_allow_html=True)
             
-            promo_code = st.text_input("Enter your activation key:", placeholder="e.g. EARLYBIRD", key="promo_input")
+            promo_code = st.text_input("Enter your activation key:", placeholder="e.g. VIVEK", key="promo_input")
             
             if st.button("Activate Pro Subscription 🚀", type="primary", use_container_width=True):
                 if promo_code:
