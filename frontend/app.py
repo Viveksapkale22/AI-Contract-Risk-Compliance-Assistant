@@ -511,6 +511,78 @@ if not st.session_state.logged_in:
             if st.button("Create Account", key="sw_reg", use_container_width=True,
                          type="primary" if not is_login else "secondary"):
                 st.session_state.auth_tab = "register"; st.rerun()
+            else:
+                    # ── SIMULTANEOUS PRE-FLIGHT WARMUP INTERCEPTOR (REGISTRATION) ──
+                    backend_online = False
+                    status_placeholder = st.empty()
+                    
+                    # 1. Validate the current API_URL first, just like login
+                    if API_URL:
+                        try:
+                            r = requests.get(f"{API_URL}/health", timeout=2.0)
+                            if r.status_code == 200:
+                                backend_online = True
+                            else:
+                                API_URL = None
+                        except requests.exceptions.RequestException:
+                            API_URL = None
+
+                    # 2. Use the exact same fast probe function as the login block
+                    if not API_URL:
+                        with status_placeholder:
+                            st.info("📡 Scanning for available backend environments (Local then Production)...")
+                            
+                        def probe(url, timeout=1.5):
+                            try:
+                                r = requests.get(f"{url}/health", timeout=timeout)
+                                return r.status_code == 200
+                            except requests.exceptions.RequestException:
+                                return False
+
+                        max_attempts = 10
+                        for attempt in range(1, max_attempts + 1):
+                            if probe(LOCAL_API_URL):
+                                API_URL = LOCAL_API_URL
+                                st.session_state.API_URL = LOCAL_API_URL  # <-- CRITICAL FIX
+                                backend_online = True
+                                break
+                            if probe(PRODUCTION_API_URL):
+                                API_URL = PRODUCTION_API_URL
+                                st.session_state.API_URL = PRODUCTION_API_URL  # <-- CRITICAL FIX
+                                backend_online = True
+                                break
+                            
+                            with status_placeholder:
+                                st.warning(f"⏳ Warming up backends — attempt {attempt}/{max_attempts}. Trying Local then Production...")
+                            time.sleep(min(1 + attempt, 6))
+                        
+                    status_placeholder.empty()
+                    
+                    if not backend_online:
+                        st.error("🚨 **Cluster Unresponsive:** Neither your local nor production backend instances responded in time. Please ensure one is active and refresh.")
+                    else:
+                        with st.spinner("Creating your account…"):
+                            try:
+                                r = requests.post(
+                                    f"{API_URL}/api/register",
+                                    json={"username": r_user, "email": r_email,
+                                          "password": r_pw1, "name": r_name},
+                                    timeout=12,
+                                )
+                                if r.status_code == 200:
+                                    st.success(f"✅  Account created! Welcome, {r_name}. Please sign in.")
+                                    st.session_state.auth_tab = "login"
+                                    time.sleep(1.5)
+                                    st.rerun()
+                                else:    
+                                    try:
+                                        err_msg = r.json().get('detail', 'Registration failed.')
+                                    except Exception:
+                                        err_msg = f"Critical Server Error ({r.status_code}): The backend crashed. Please check your Render logs."
+                                    
+                                    st.error(f"❌  {err_msg}")
+                            except Exception as ex:
+                                st.error(f"Error: {ex}")    
 
         st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
 
