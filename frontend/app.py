@@ -710,7 +710,8 @@ if not st.session_state.logged_in:
                                     st.session_state.auth_tab = "login"
                                     time.sleep(1.5)
                                     st.rerun()
-                                try:
+                                else:    
+                                    try:
                                         err_msg = r.json().get('detail', 'Registration failed.')
                                     except Exception:
                                         # If .json() fails, we catch it here instead of crashing the app
