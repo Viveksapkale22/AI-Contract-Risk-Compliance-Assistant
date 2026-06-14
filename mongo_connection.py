@@ -41,18 +41,28 @@ sessions_collection.create_index([("session_id", pymongo.ASCENDING)], unique=Tru
 
 # --- Find your existing create_user function and update the insert_one block ---
 def create_user(username: str, email: str, password: str, name: str):
-    # ... (Keep your existing existence checks and password hashing) ...
+    """Registers a new user with email and hashed password."""
+    # 1. Check if user already exists
+    if users_collection.find_one({"username": username}):
+        return {"status": "error", "message": "Username already exists"}
+    if users_collection.find_one({"email": email}):
+        return {"status": "error", "message": "Email already exists"}
     
+    # 2. Hash the password securely using bcrypt (THIS WAS MISSING!)
+    encoded_password = password[:72].encode('utf-8')
+    salt = bcrypt.gensalt()
+    hashed_password = bcrypt.hashpw(encoded_password, salt).decode('utf-8')
+    
+    # 3. Save to MongoDB with the default "free" tier
     users_collection.insert_one({
         "username": username,
         "email": email,
         "password": hashed_password,
         "name": name,
-        "tier": "free",  # 🆕 ADD THIS: Default all new users to free
+        "tier": "free",
         "created_at": datetime.now()
     })
     return {"status": "success", "message": "User registered successfully"}
-
 # --- Add these two NEW functions at the bottom of the file ---
 
 def can_user_upload(username: str) -> bool:
